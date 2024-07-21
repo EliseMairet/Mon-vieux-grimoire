@@ -1,7 +1,7 @@
 const Book = require('../models/book');
 const fs = require('fs');
 
-function deleteImgFile (bookToDelete) {
+function deleteImgFile(bookToDelete) {
     if (bookToDelete.imageUrl) {
         const filenameThumb = bookToDelete.imageUrl.split('/images/')[1];
         const filenameLarge = filenameThumb.split('_thumbnail')[0];
@@ -11,33 +11,32 @@ function deleteImgFile (bookToDelete) {
         fs.unlink(`images/${filenameLarge}.png`, () => { });
         fs.unlink(`images/${filenameThumb}`, () => { });
     }
-};
+}
 
-//Create and Save new book
-exports.createBook = async(req, res) => {
+// Create and Save new book
+exports.createBook = async (req, res) => {
     try {
         const bookObject = JSON.parse(req.body.book);
-        const book = new Book ({
+        const book = new Book({
             ...bookObject,
             imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename.replace(/\.jpeg|\.jpg|\.png/g, "_")}thumbnail.webp`
         });
 
         await book.save();
-
         res.status(201).json({ message: 'Livre sauvegardé' });
-    } catch (error) { 
+    } catch (error) {
         res.status(500).json({ error });
-    };
+    }
 };
 
-//Create Rating 
+// Create Rating
 exports.createRatingBook = async (req, res) => {
     try {
         const book = await Book.findById(req.params.id);
         if (!book) {
             res.status(404).json({ message: 'Livre introuvable' });
         }
-    
+
         const isAlreadyRated = book.ratings.find(rating => rating.userId === req.auth.userId);
         if (!isAlreadyRated) {
             book.ratings.push({
@@ -49,9 +48,8 @@ exports.createRatingBook = async (req, res) => {
             book.ratings.forEach(rating => {
                 newRating = newRating + rating.grade;
             });
-            book.averageRating = newRating/book.ratings.length;
-            // book.averageRating = book.ratings.reduce((accumulator, currentValue) => accumulator + currentValue.grade, 0) / book.ratings.length;
-        
+            book.averageRating = newRating / book.ratings.length;
+
             await book.save();
             res.status(201).json(book);
         } else {
@@ -62,13 +60,13 @@ exports.createRatingBook = async (req, res) => {
     }
 };
 
-//Read
-exports.getAllBook = async(_req, res) => {
+// Read
+exports.getAllBook = async (_req, res) => {
     const books = await Book.find({});
     res.json(books);
 };
 
-exports.getOneBook = async(req, res) => {
+exports.getOneBook = async (req, res) => {
     try {
         const book = await Book.findOne({ _id: req.params.id });
         res.json(book);
@@ -77,8 +75,8 @@ exports.getOneBook = async(req, res) => {
     }
 };
 
-//Update
-exports.updateOneBook = async(req, res) => {
+// Update
+exports.updateOneBook = async (req, res) => {
     const book = req.file ? {
         ...JSON.parse(req.body.book),
         imageUrl: `${req.protocol}://${req.get('host')}/images/${req.file.filename.replace(/\.jpeg|\.jpg|\.png/g, "_")}thumbnail.webp`,
@@ -86,37 +84,35 @@ exports.updateOneBook = async(req, res) => {
 
     const bookBefore = await Book.findOneAndUpdate({ _id: req.params.id, userId: req.auth.userId }, book);
     if (!bookBefore) {
-        res.status(403).json({ message : 'Non autorisé'});
+        res.status(403).json({ message: 'Non autorisé' });
     }
 
     deleteImgFile(bookBefore);
-
-    res.json({ message: 'Livre mis a jour' });
+    res.json({ message: 'Livre mis à jour' });
 };
 
-//Delete
-exports.deleteOneBook = async(req, res) => {
+// Delete
+exports.deleteOneBook = async (req, res) => {
     try {
         const book = await Book.findOne({ _id: req.params.id, userId: req.auth.userId });
         if (!book) {
             res.status(403).json({ message: 'Non autorisé' });
         }
-        
-        deleteImgFile(book);
 
+        deleteImgFile(book);
         await book.deleteOne({ _id: req.params.id });
         res.json({ message: 'Livre supprimé' });
-    } catch(error) {
+    } catch (error) {
         res.status(500).json({ error });
     }
 };
 
 // Best rating
-exports.bestRating = async(_req, res) => {
+exports.bestRating = async (_req, res) => {
     try {
         const books = await Book.find({}).sort({ averageRating: 'desc' }).limit(3);
         res.json(books);
-    } catch(error) {
+    } catch (error) {
         console.error(error.message);
         res.status(500).json({ error });
     }
